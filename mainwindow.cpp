@@ -1,5 +1,7 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+
+
 #include <QMessageBox>
 #include <QPixmap>
 
@@ -10,10 +12,31 @@ MainWindow::MainWindow(Controller *controller, QWidget *parent)
 {
     ui->setupUi(this);
     ui->stackedWidget->setCurrentWidget(ui->MAINWINDOW);
-    QPixmap pix("/Users/mohamedsoliman/Logo.png");
+    QPixmap pix("/Users/littlejimmyfirl/Desktop/bulkClub/Logo.png");
     int w = ui ->logo->width();
     int h = ui ->logo->height();
     ui->logo->setPixmap(pix.scaled(w,h,Qt::KeepAspectRatio));
+
+    //sami changes
+    QFile file(QDir::homePath() + "/storedDates.txt");
+    if(!file.exists())
+    {
+        qDebug() << file.fileName() << " does not exist";
+    }
+
+    QString line;
+    if(file.open(QIODevice::ReadOnly | QIODevice::Text))
+    {
+        QTextStream stream(&file);
+           while (!stream.atEnd())
+           {
+                line = stream.readLine();
+                ui-> comboBox->addItem(line);
+           }
+
+    }
+            file.close();
+    /* This is just simply reading in the storedDates text and adding them to the combo box. */
 }
 
 
@@ -22,10 +45,7 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-void MainWindow::on_ValidateSoftware_clicked()
-{
-    changetoValidationTool();
-}
+
 void MainWindow::on_pushButton_2_clicked()
 {
     this->ui->username->setText("");
@@ -60,8 +80,6 @@ void MainWindow::on_pushButton_clicked()
            {
             QMessageBox::information(this, "Login", "Username and password is correct");
             changeToAdmin();
-            this->ui->username->setText("");
-            this->ui->password->setText("");
            }
            else if (count!= 1)
            {
@@ -75,8 +93,6 @@ void MainWindow::on_pushButton_clicked()
                     {
                        QMessageBox::information(this,"Login", "Username and Password is correct");
                        changeToManager();
-                       this->ui->username->setText("");
-                       this->ui->password->setText("");
                     }
                     else
                     {
@@ -89,28 +105,66 @@ void MainWindow::on_pushButton_clicked()
 }
 void MainWindow::changeToAdmin()
 {
-    ui->stackedWidget->setCurrentWidget(ui->TransitionalAdminPage);
+    ui->stackedWidget->setCurrentWidget(ui->adminLogin);
     page++;
 }
-void MainWindow::changetoValidationTool()
-{
-    ui->stackedWidget->setCurrentWidget(ui->ValidationTool);
-}
+
 void MainWindow::changeToManager()
 {
     ui->stackedWidget->setCurrentWidget(ui->managerLogin);
     page++;
 }
 
+void MainWindow::changeToMain()
+{
+    ui->stackedWidget->setCurrentWidget(ui->MAINWINDOW);
+    page = 0;
+}
+
+void MainWindow::changeToValidate()
+{
+    ui->stackedWidget->setCurrentWidget(ui->addMember);
+}
 
 void MainWindow::on_viewItems_clicked()
 {
+   showTables();
    ui->managerTable->setModel(m_controller->getCommoditiesQueryModel());
+   ui->managerTable->resizeColumnsToContents();
 }
 
 void MainWindow::on_loadSales_clicked()
 {
+    //sami changes
+
+    QString comboDate;
     m_controller->readRecordFile();
+    m_controller->getComboDate(comboDate);
+    qDebug() << comboDate;
+
+    ui-> comboBox->addItem(comboDate);
+    QFile file(QDir::homePath() + "/storedDates.txt");
+    if(!file.exists())
+    {
+        qDebug() << file.fileName() << " does not exist";
+    }
+
+    if(file.open(QIODevice::Append| QIODevice::WriteOnly | QIODevice::Text))
+    {
+        QTextStream txtStream (&file);
+
+        qDebug() << "~~~~~ Writing To File ~~~~~";
+
+        txtStream << comboDate << endl;
+        file.close();
+    }
+    /* The addition to the original controller function here adds functinailty
+     * for the date to be added to a new file that stores the dates that have
+     * already been added to the application. This is helpful because, without saving this information
+     * the combobox does not keep the dynamically added dates. Therefore the dates are saved, and loaded
+     * into the combobox when the application is started up.
+     */
+
 }
 
 void MainWindow::on_comboBox_currentIndexChanged(const QString &arg1)
@@ -129,6 +183,7 @@ void MainWindow::on_comboBox_currentIndexChanged(const QString &arg1)
     ui->managerTable->setColumnHidden(3,true);
     ui->managerTable->setColumnHidden(4,true);
     ui->managerTable->show();
+    ui->managerTable->resizeColumnsToContents();
 
 }
 void MainWindow::showTables()
@@ -138,33 +193,34 @@ void MainWindow::showTables()
     ui->managerTable->setColumnHidden(3,false);
     ui->managerTable->setColumnHidden(4,false);
 }
+void MainWindow::on_loadSales_2_clicked()
+{
+   m_controller->readMemberFile();
 
+}
 
 void MainWindow::on_comboBox_2_currentIndexChanged(const QString &arg1)
 {
     QString select = ui->comboBox_2->currentText();
 
-    if(select == "Sort Members By ID")
+    if(select == "Sort By ID")
     {
       showTables();
       ui->managerTable->setModel(m_controller->getRevenueSortedById());
+      ui->managerTable->resizeColumnsToContents();
 
     }
-    if(select == "Sort Members By REV")
+    if(select == "Sort By REV")
     {
        showTables();
        ui->managerTable->setModel(m_controller->getRevenueSortedByRev());
+       ui->managerTable->resizeColumnsToContents();
     }
-    if(select == "Sort item By Rev")
-    {
-        showTables();
-        ui->managerTable->setModel(m_controller->SortByRevenueItems());
-    }
-    if(select == "Sort item By Name")
-    {
-        showTables();
-        ui->managerTable->setModel(m_controller->SortByNameItems());
-    }
+}
+
+void MainWindow::on_validate_clicked()
+{
+    changeToValidate();
 }
 
 
@@ -214,6 +270,43 @@ QString MainWindow ::getMonth(QString month)
     // converts it into a two number string that is formatted to work with our database.
     // Ideally this would in a switch statement however that only functions properly with integer values or enum values.
 }
+
+QString MainWindow ::getFullMonth(QString month)
+{
+    if (month == "01")
+        month = "January";
+    else if (month == "02")
+        month = "February";
+    else if (month == "03")
+        month = "March";
+    else if (month == "04")
+        month = "April";
+    else if (month == "05")
+        month = "May";
+    else if (month == "06")
+        month = "June";
+    else if (month == "07")
+        month = "July";
+    else if (month == "08")
+        month = "August";
+    else if (month == "09")
+        month = "September";
+    else if (month == "10")
+        month = "October";
+    else if (month == "11")
+        month = "November";
+    else if (month == "12")
+        month = "December";
+    else
+        qDebug() << "No Valid Month" << endl;
+
+    return month;
+
+    // This function takes a 3 letter month value that is taken from "QDate::currentDate()" and
+    // converts it into a two number string that is formatted to work with our database.
+    // Ideally this would in a switch statement however that only functions properly with integer values or enum values.
+}
+
 void MainWindow::on_createMember_clicked()
 {
     QString name;
@@ -231,7 +324,6 @@ void MainWindow::on_createMember_clicked()
     QString dayDate = stringDate.mid(8,2);
     QString dayYear = stringDate.mid(11,5);
 
-    qDebug() << dayYear;
     int intYear = dayYear.toInt() + 1;
     year = QString::number(intYear);
 
@@ -240,8 +332,6 @@ void MainWindow::on_createMember_clicked()
     {
         dayDate = "0" + dayDate;
     }
-    qDebug() << dayDate << endl;
-    qDebug() << year << endl;
     /*
      * QDate date takes the current date in the format as "11 - 06 - 2019" in a QDate value.
      * It is then converted into a string wich converts it into the format "Wed Nov 6 2019
@@ -289,41 +379,10 @@ void MainWindow::on_createMember_clicked()
     ui->memberName->setText(name);
     ui->memberType->setText(type);
     ui->memberId->setText(memberId);
+
+
     ui->adminTable->setModel(m_controller->getCommoditiesQueryModel());
-        ui->adminTable->resizeColumnsToContents();
-
-}
-
-void MainWindow::on_LoadMemberInfo_clicked()
-{
-       m_controller->readMemberFile();
-}
-
-void MainWindow::on_SearchItembyname_clicked()
-{
-    QString name = QInputDialog::getText(this,"Search For Item", "Enter the Item Name");
-    showTables();
-
-    ui->managerTable->setModel(m_controller->getCommoditiesQueryModelbyName(name));
-}
-
-void MainWindow::on_SearchCustomerByID_clicked()
-{
-    int ID = QInputDialog::getInt(this,"Search For Customer", "Enter the Item ID");
-
-    Member* member = m_controller->getMemberById(ID);
-
-    QString condition = "member_id =";
-
-
-    condition += QString::number(ID);
-    showTables();
-    ui->managerTable->setModel(m_controller->getRecordsQueryModelWithCondition(condition));
-
-
-
-
-
+    ui->adminTable->resizeColumnsToContents();
 }
 
 void MainWindow::on_adminTable_clicked(const QModelIndex &index)
@@ -347,71 +406,143 @@ void MainWindow::on_adminTable_clicked(const QModelIndex &index)
                 price = qry.value(1).toString();
                 subTotal = (QString::number(price.toDouble() * 1.0775));
                 ui->priceShow->setText(QString::number(price.toDouble(),'g',6));
-                ui->subShow->setText(QString::number(subTotal.toDouble(),'g',4));
+                ui->subShow->setText(QString::number(subTotal.toDouble(),'g',3));
             }
         }
 
     }
 }
 
-void MainWindow::on_FinalizePurchase_clicked()
+void MainWindow::savetoNewFile(QString date, QString ID, QString item, QString price, QString QTY)
+{
+    QString year;
+    QString month;
+    QString day;
+
+    QDate dates = QDate::currentDate();
+    QString stringDate = dates.toString();
+    QString monthDate = stringDate.mid( 4, 3);
+    QString dayDate = stringDate.mid(8,2);
+    QString dayYear = stringDate.mid(11,5);
+
+    int intYear = dayYear.toInt();
+    year = QString::number(intYear);
+
+    month = getMonth(monthDate);
+    if (dayDate.toInt() < 10)
+    {
+        dayDate = "0" + dayDate;
+    }
+
+    QString finalDate = month + dayDate + year;
+
+    QFile file(QDir::homePath() + "/" + finalDate + ".txt");
+
+    if(!file.exists())
+    {
+        qDebug() << file.fileName() << " does not exist";
+    }
+
+    if(file.open(QIODevice::Append| QIODevice::WriteOnly | QIODevice::Text))
+    {
+        QTextStream txtStream (&file);
+
+        qDebug() << "~~~~~ Writing To File ~~~~~";
+
+        txtStream << date << endl;
+        txtStream << ID << endl;
+        txtStream << item << endl;
+        txtStream << price << endl;
+        txtStream << QTY << endl;
+        file.close();
+
+        /* This is a basic QFile function that creates a unique daily sales report file each day,
+         * this is accomplished by taking the current date and breaking it into the format of
+         * mmddyyy (m = month, d = day, y = year) and saves it. However if that file already
+         * exists the file is just updated.
+         */
+    }
+    else
+    {
+        qDebug() << "Could not open the fie";
+        return;
+    }
+}
+
+void MainWindow::on_purchaseButton_clicked()
 {
     QString price;
     QString rebate;
     QString name;
+    QString item;
+    QString memberType;
+    QString memberID;
     QSqlQuery qry;
 
-       price = ui->priceShow->text();
-       name = ui->memberName->text();
+    QString year;
+    QString month;
+    QString day;
 
-       rebate = QString::number(price.toDouble() * 0.02);
+    price = ui->priceShow->text();
+    name = ui->nameEdit->text();
+    memberType = ui->memberType->text();
+    memberID = ui->memberId->text();
+    item = ui->nameShow->text();
 
-       qry.exec("update member set spent = '"+price+"', rebate = '"+rebate+"' where name = '"+name+"'");
+    rebate = QString::number(price.toDouble() * 0.02);
 
-       QMessageBox::information(this,"Purchase Complete", "Purchase Has Sucsessfully Been Completed by Member " + name);
+    qry.exec("update member set spent = '"+price+"', rebate = '"+rebate+"' where name = '"+name+"'");
 
-       changeToAdmin();
+    QMessageBox::information(this,"Purchase Complete", "Purchase Has Sucsessfully Been Completed by Member " + name);
+
+    /* QStrings are taking the values of displayed on the screen. Theses values are things such as item prie, member name,
+     * member ID, member Type, and the item name. The purchase is then stored in the database. The inital database update occurs
+     * when the member is created through the on_createMember_clicked() function, the second occurs during this function
+     * which updates that member with their corresponding purchase, including calculating their rebate.
+     */
+
+    QDate date = QDate::currentDate();
+    QString stringDate = date.toString();
+    QString monthDate = stringDate.mid( 4, 3);
+    QString dayDate = stringDate.mid(8,2);
+    QString dayYear = stringDate.mid(11,5);
+
+    int intYear = dayYear.toInt();
+    year = QString::number(intYear);
+
+    month = getMonth(monthDate);
+    if (dayDate.toInt() < 10)
+    {
+        dayDate = "0" + dayDate;
+    }
+
+    QString finalDate = month + '/' + dayDate + '/' + year;
+
+    savetoNewFile(finalDate, memberID,item, price, "1");
+
+    /* Borrowing the date gathering code from on_createMember_clicked() function (this should be converted to its own function before
+     * the final product is submitted) the date is taken and formatted properly to be used to store in our new purchase date tool.
+     * A new file is created and the values are stored in the text document.*/
+
+    QString fullMonth = getFullMonth(month);
+    QString fullDate = fullMonth + ", " + dayDate +", "+ year;
+    qDebug() << fullDate;
+
+
+    changeToAdmin();
+
 }
 
-void MainWindow::on_BackButton_clicked()
+void MainWindow::on_logoutAdmin_clicked()
 {
-    ui->stackedWidget->setCurrentWidget(ui->MAINWINDOW);
-    page = 0;
+    changeToMain();
+    this->ui->username->setText("");
+    this->ui->password->setText("");
 }
 
-void MainWindow::on_BacktoMAINADMIN_clicked()
+void MainWindow::on_logOut_clicked()
 {
-    ui->stackedWidget->setCurrentWidget(ui->TransitionalAdminPage);
-}
-
-void MainWindow::on_LogoutfromAdmin_clicked()
-{
-    ui->stackedWidget->setCurrentWidget(ui->MAINWINDOW);
-    page = 0;
-}
-
-void MainWindow::on_BackFromVsoft_clicked()
-{
-    ui->stackedWidget->setCurrentWidget(ui->TransitionalAdminPage);
-}
-
-void MainWindow::on_ViewMembersadmin_clicked()
-{
-    ui->stackedWidget->setCurrentWidget(ui->AdminMemberpage);
-
-}
-
-void MainWindow::on_adminviewmember_clicked()
-{
-        ui->adminmembertable->setModel(m_controller->getMembersQueryModel());
-}
-
-void MainWindow::on_dateEdit_userDateChanged(const QDate &date)
-{
-    int month = date.month();
-    qDebug() << month;
-    int year = date.year();
-    qDebug() << year;
-
-    ui->adminmembertable->setModel(m_controller->getMembersExpiredAttheMonth(date.year(),date.month()));
+    changeToMain();
+    this->ui->username->setText("");
+    this->ui->password->setText("");
 }

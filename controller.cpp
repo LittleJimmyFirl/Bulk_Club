@@ -1,6 +1,7 @@
 // /Users/littlejimmyfirl/bulkClub/bulk_club.db
 
 #include "controller.h"
+#include "mainwindow.h"
 
 /**
  * @brief Controller::Controller
@@ -104,9 +105,7 @@ void Controller::createTable()
     QString createCommodityTable =
     "create table IF NOT EXISTS commodity(                         "
     "item            varchar(50) primary key,                      "
-    "price           float not null,                               "
-    "quantity        int   not null,                               "
-    "revenue         float not null                                "
+    "price           float not null                                "
     ");                                                            ";
     if(!qry.exec(createCommodityTable))
     {
@@ -229,22 +228,18 @@ void Controller::createRecord(int member_id, QDate date, QString item, int quant
  * @param item
  * @param price
  */
-void Controller::createCommodity(QString item, float price, int quantity, float revenue)
+void Controller::createCommodity(QString item, float price)
 {
     // Step 1
     // Creating an entry into database
     QSqlQuery qry;
     qry.prepare("insert into commodity   (    "
                 "item,                        "
-                "price,                       "
-                "quantity,                    "
-                "revenue)                     "
-                "values(?,?,?,?);             "
+                "price)                       "
+                "values(?,?);         "
                 );
     qry.addBindValue(item);
     qry.addBindValue(price);
-    qry.addBindValue(quantity);
-    qry.addBindValue(revenue);
 
     if(!qry.exec())
     {
@@ -334,44 +329,6 @@ void Controller::updatemember(int id, QString name, QString type, QDate date, fl
 
 }
 
-void Controller::updateCommodity(QString item, float price, int quantity, float revenue)
-{
-    QSqlQuery qry;
-    qry.prepare("update commodity set  "
-                "item               = ?, "
-                "price              = ?, "
-                "quantity           = ?, "
-                "revenue            = ?  "
-                "where item         = ?; "
-                     );
-
-    qry.addBindValue(item);
-    qry.addBindValue(price);
-    qry.addBindValue(quantity);
-    qry.addBindValue(revenue);
-    qry.addBindValue(item);
-
-    if(!qry.exec())
-    {
-        //qDebug() <<"error updating values to db" << endl;
-        qDebug() << qry.lastError().text() << endl;
-    }
-    qry.clear();
-
-    int index;
-    for(index = 0; index < this->m_commodities.count(); index++)
-    {
-        if(this->m_commodities[index]->item() == item)
-        {
-            this->m_commodities[index]->setPrice(price);
-            this->m_commodities[index]->setQuantity(quantity);
-            this->m_commodities[index]->setRevenue(revenue);
-            break;
-        }
-    }
-
-}
-
 void Controller::getSalesReportBydate(QDate date, QMap<QString, int> &items, QList<int> &regularMembers, QList<int> &executiveMembers, int &revenue)
 {
     // Loading items
@@ -444,16 +401,14 @@ void Controller::getTotalRevenueOfItems(QMap<QString, float> &totalRevenueOfItem
        totalRevenueOfItems[this->m_commodities[index]->item()] = 0;
     }
 
-
-    QMap<QString, int> totalQuantityOfItems;
-    getTotalQuantityOfItems(totalQuantityOfItems);
-
-    auto iter = totalRevenueOfItems.begin();
-    while(iter != totalRevenueOfItems.end())
+    for(int index = 0; index < this->m_records.count(); index++)
     {
-        auto commodity = getCommodityByItemName(iter.key());
-        iter.value() = totalQuantityOfItems[iter.key()]*commodity->price();
-        iter++;
+        totalRevenueOfItems[this->m_records[index]->item()] += this->m_records[index]->quantity();
+    }
+
+    for(int index = 0; index < this->m_commodities.count(); index++)
+    {
+       totalRevenueOfItems[this->m_commodities[index]->item()] *= this->m_commodities[index]->price();
     }
 }
 
@@ -555,21 +510,6 @@ QSqlQueryModel *Controller::getMembersQueryModel()
 
     return model;
 }
-QSqlTableModel* Controller::getMembersExpiredAttheMonth(int year, int month)
-{
-    QSqlTableModel* model = new QSqlTableModel();
-    model->setTable("member");
-
-    QString condition;
-    condition = "year = " + QString::number(year) + "&";
-    condition = "month = " + QString::number(month);
-
-    model->setFilter(condition);
-    model->sort(0,Qt::AscendingOrder);
-    model->select();
-
-    return model;
-}
 
 QSqlQueryModel *Controller::getRecordsQueryModel()
 {
@@ -620,38 +560,6 @@ QSqlQueryModel *Controller::getRevenueSortedByRev()
 
     return model;
 }
-QSqlQueryModel *Controller::SortByRevenueItems()
-{
-    QSqlQueryModel* model = new QSqlQueryModel();
-
-    QSqlQuery qry;
-    qry.prepare("select item, price, quantity, revenue from commodity ORDER BY revenue ASC;");
-    if(!qry.exec())
-    {
-        qDebug() <<"error Loading values to db" << endl;
-
-    }
-
-    model->setQuery(qry);
-
-    return model;
-}
-QSqlQueryModel *Controller::SortByNameItems()
-{
-    QSqlQueryModel* model = new QSqlQueryModel();
-
-    QSqlQuery qry;
-    qry.prepare("select item, price, quantity, revenue from commodity ORDER BY item ASC;");
-    if(!qry.exec())
-    {
-        qDebug() <<"error Loading values to db" << endl;
-
-    }
-
-    model->setQuery(qry);
-
-    return model;
-}
 
 
 
@@ -661,23 +569,6 @@ QSqlQueryModel *Controller::getCommoditiesQueryModel()
 
     QSqlQuery qry;
     qry.prepare("select * from commodity;");
-    if(!qry.exec())
-    {
-        qDebug() <<"error Loading values to db" << endl;
-
-    }
-
-    model->setQuery(qry);
-
-    return model;
-}
-QSqlQueryModel *Controller::getCommoditiesQueryModelbyName(QString name)
-{
-    QSqlQueryModel* model = new QSqlQueryModel();
-
-    QSqlQuery qry;
-    qry.prepare("select * from commodity where item =:name");
-    qry.bindValue(":name",name);
     if(!qry.exec())
     {
         qDebug() <<"error Loading values to db" << endl;
@@ -725,8 +616,9 @@ bool Controller::readRecordFile()
 {
     QString file_name = QFileDialog::getOpenFileName(nullptr, "Open Record File",QDir::homePath());
 
-
     QFile file(file_name);
+
+    QFileInfo fileInfo(file_name);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
         return false;
     QTextStream in(&file);
@@ -750,6 +642,46 @@ bool Controller::readRecordFile()
         //Read item quantity
         QString quantity_str = in.readLine();
         int quantity = quantity_str.toInt();
+        //Testing
+        qDebug() << year <<  "/" << month << "/" << day;
+        qDebug() << member_id;
+        qDebug() << item;
+        qDebug() << price;
+        qDebug() << quantity;
+
+
+        // start of SAMI temporary changes
+        QString stringMonth;
+        if (month == 01)
+            stringMonth = "January";
+        else if (month == 02)
+            stringMonth = "February";
+        else if (month == 03)
+            stringMonth = "March";
+        else if (month == 04)
+            stringMonth = "April";
+        else if (month == 05)
+            stringMonth = "May";
+        else if (month == 06)
+            stringMonth = "June";
+        else if (month == 07)
+            stringMonth = "July";
+        else if (month == 8)
+            stringMonth = "August";
+        else if (month == 9)
+            stringMonth = "September";
+        else if (month == 10)
+            stringMonth = "October";
+        else if (month == 11)
+            stringMonth = "November";
+        else if (month == 12)
+            stringMonth = "December";
+        else
+            qDebug() << "No Valid Month" << endl;
+
+        QString fullDate = stringMonth + ", " + QString::number(day) + ", " + QString::number(year);
+        setComboDate(fullDate);
+        //end of sami changes
         // Check if the date is already be loaded
         if(!date_is_alraedy_be_record)
         {
@@ -770,38 +702,12 @@ bool Controller::readRecordFile()
                     item,
                     quantity);
         // create the commodity
-        createCommodity(item,price,0,0);
+        createCommodity(item,price);
+
      }
-
-
-    QMap<QString, float> itemsRevenue;
-    getTotalRevenueOfItems(itemsRevenue);
-
-    // unnfinished
-    for(auto iter = itemsRevenue.begin(); iter != itemsRevenue.end(); iter++)
-    {
-        Commodity* commodity = getCommodityByItemName(iter.key());
-        updateCommodity(commodity->item(),
-                        commodity->price(),
-                        commodity->quantity(),
-                        iter.value());
-    }
-
-    QMap<QString, int> itemsQuantity;
-    getTotalQuantityOfItems(itemsQuantity);
-    for(auto iter = itemsQuantity.begin(); iter != itemsQuantity.end(); iter++)
-    {
-        Commodity* commodity = getCommodityByItemName(iter.key());
-        updateCommodity(commodity->item(),
-                        commodity->price(),
-                        iter.value(),
-                        commodity->revenue());
-    }
-
 
     return true;
 }
-
 
 bool Controller::readMemberFile()
 {
@@ -860,15 +766,6 @@ float Controller::calcMemberRebate(int member_id)
     return rebate;
 }
 
-Commodity *Controller::getCommodityByItemName(QString item)
-{
-    for(int index = 0; index < m_commodities.count(); index++)
-    {
-        if(m_commodities[index]->item() == item)
-            return m_commodities[index];
-    }
-    return nullptr;
-}
 void Controller::loadMembers()
 {
     QSqlTableModel model;
@@ -878,7 +775,7 @@ void Controller::loadMembers()
     for(int index = 0; index < model.rowCount(); index++)
     {
         Member* entry = new Member();
-        entry->setId(model.record(index).value("id").toInt());
+        entry->setId(model.record(index).value("name").toInt());
         entry->setName(model.record(index).value("name").toString());
         entry->setType(model.record(index).value("type").toString());
         // setting date
@@ -952,15 +849,22 @@ void Controller::loadAdmins()
     }
 
 }
-Member *Controller:: getMemberById(int id)
+
+void Controller::setComboDate(QString combo)
 {
-    Member* member = nullptr;
-    for (int index = 0;index < m_members.count();index++)
-    {
-        if(m_members[index]->id() == id)
-        {
-            member = m_members[index];
-        }
-    }
-    return member;
+    comboDate = combo;
 }
+
+void Controller::getComboDate(QString &combo)
+{
+    combo = comboDate;
+}
+
+
+
+
+
+
+
+
+

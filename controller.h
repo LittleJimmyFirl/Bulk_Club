@@ -44,9 +44,7 @@ public:
                       QString item,
                       int     quantity);
     void createCommodity(QString item,
-                         float price,
-                         int quantity,
-                         float revenue);
+                         float price);
     //******************************************************************************************
     // deleting the entry
     //******************************************************************************************
@@ -61,10 +59,6 @@ public:
                       float   spent,
                       float   rebate);
 
-    void updateCommodity(QString item,
-                         float price,
-                         int quantity,
-                         float revenue);
 
     //==========================================================================================
     // This part will not change the data
@@ -142,24 +136,19 @@ public:
     QSqlQueryModel* getCommoditiesQueryModel();
     QSqlQueryModel* getRevenueSortedById();
     QSqlQueryModel* getRevenueSortedByRev();
-    QSqlQueryModel*SortByRevenueItems();
-    QSqlQueryModel*SortByNameItems();
-
 
     QSqlTableModel* getMembersQueryModelWithCondition(QString condition);
     QSqlTableModel* getRecordsQueryModelWithCondition(QString condition);
     QSqlTableModel* getCommoditiesQueryModelWithCondition(QString condition);
-    QSqlTableModel* getMembersExpiredAttheMonth(int year,int month);
-
     bool readRecordFile();
     bool readMemberFile();
 
     float calcMemberSpent(int member_id);
     float calcMemberRebate(int member_id);
 
-    Commodity* getCommodityByItemName(QString item);
-    QSqlQueryModel* getCommoditiesQueryModelbyName(QString name);
-    Member* getMemberById(int id);
+    //Sami's Functions
+    void setComboDate(QString combo);
+    void getComboDate (QString& combo);
 
 
 
@@ -167,6 +156,9 @@ signals:
 
 public slots:
 private:
+    //Sami's Varaible
+    QString comboDate;
+
     QSqlDatabase      m_database;
     QList<Member*>    m_members;
     QList<Record*>    m_records;
